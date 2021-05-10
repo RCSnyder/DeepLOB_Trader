@@ -14,7 +14,7 @@ async def symbol_loop(exchange, symbol):
     print('Starting the', exchange.id, 'symbol loop with', symbol)
     master_data = []
     start_time = exchange.milliseconds()
-    end_time = start_time + 60000
+    end_time = start_time + 43200000
     while True:
         try:
             # --------------------> DO YOUR LOGIC HERE <------------------
@@ -57,7 +57,8 @@ async def main(asyncio_loop):
     exchanges = {
         'kraken': ['DOGE/USDT'],
         'kucoin': ['DOGE/USDT'],
-        'binanceus': ['DOGE/USDT']
+        'binanceus': ['DOGE/USDT'],
+        'binance': ['DOGE/USDT']
     }
     loops = [exchange_loop(asyncio_loop, exchange_id, symbols) for exchange_id, symbols in exchanges.items()]
     await gather(*loops)
