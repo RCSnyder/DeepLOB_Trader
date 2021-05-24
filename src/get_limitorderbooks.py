@@ -9,13 +9,13 @@ sys.path.append(root + '/python')
 import ccxt.async_support as ccxt  # noqa: E402
 
 
-
 async def symbol_loop(exchange, symbol):
     print('Starting the', exchange.id, 'symbol loop with', symbol)
     master_data = []
     start_time = exchange.milliseconds()
     end_time = start_time + 43200000
     while True:
+        # add check for now > end_time to break
         while True:
             try:
                 # --------------------> DO YOUR LOGIC HERE <------------------
@@ -34,21 +34,28 @@ async def symbol_loop(exchange, symbol):
                     # save to pickle with good name
                     print(exchange.id, len(master_data))
                     df = pd.DataFrame(master_data)
-                    df.to_pickle(exchange.id + "_" + symbol.replace('/', '-') + "_" + str(start_time) + "_" + str(end_time) + "_lob.pkl")
+                    df.to_pickle(exchange.id + "_" + symbol.replace('/', '-') + "_" + str(start_time) + "_" + str(
+                        end_time) + "_lob.pkl")
                     break
 
             except ccxt.DDoSProtection as e:
                 print(str(e), 'DDoS Protection (ignoring)')
+                print(exchange.milliseconds())
             except ccxt.RequestTimeout as e:
                 print(str(e), 'Request Timeout (ignoring)')
+                print(exchange.milliseconds())
             except ccxt.ExchangeNotAvailable as e:
                 print(str(e), 'Exchange Not Available due to downtime or maintenance (ignoring)')
+                print(exchange.milliseconds())
             except ccxt.AuthenticationError as e:
                 print(str(e), 'Authentication Error (missing API keys, ignoring)')
+                print(exchange.milliseconds())
             except ccxt.BaseError as e:
                 print(str(e), e.args, 'Base Error')
+                print(exchange.milliseconds())
             except Exception as e:
                 print(str(e), "Ignoring")
+                print(exchange.milliseconds())
                 # raise e  # uncomment to break all loops in case of an error in any one of them
                 # break  # you can break just this one loop if it fails
 
