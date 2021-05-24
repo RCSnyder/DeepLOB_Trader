@@ -16,30 +16,41 @@ async def symbol_loop(exchange, symbol):
     start_time = exchange.milliseconds()
     end_time = start_time + 43200000
     while True:
-        try:
-            # --------------------> DO YOUR LOGIC HERE <------------------
-            orderbook = await exchange.fetch_order_book(symbol)
-            now = exchange.milliseconds()
-            print(now)
-            print(exchange.iso8601(now), exchange.id, symbol, orderbook['asks'][0], orderbook['bids'][0])
-            print(exchange.iso8601(now), exchange.id, symbol, len(orderbook['asks']), len(orderbook['bids']))
+        while True:
+            try:
+                # --------------------> DO YOUR LOGIC HERE <------------------
+                orderbook = await exchange.fetch_order_book(symbol)
+                now = exchange.milliseconds()
+                # print(now)
+                # print(exchange.iso8601(now), exchange.id, symbol, orderbook['asks'][0], orderbook['bids'][0])
+                # print(exchange.iso8601(now), exchange.id, symbol, len(orderbook['asks']), len(orderbook['bids']))
 
-            master_data.append({'date': exchange.iso8601(now),
-                                'exchange_id': exchange.id,
-                                'symbol': symbol,
-                                'asks': orderbook['asks'][0:40],
-                                'bids': orderbook['bids'][0:40]})
-            if now > end_time:
-                # save to pickle with good name
-                print(exchange.id, len(master_data))
-                df = pd.DataFrame(master_data)
-                df.to_pickle(exchange.id + "_" + symbol.replace('/', '-') + "_" + str(start_time) + "_" + str(end_time) + "_lob.pkl")
-                break
+                master_data.append({'date': exchange.iso8601(now),
+                                    'exchange_id': exchange.id,
+                                    'symbol': symbol,
+                                    'asks': orderbook['asks'][0:40],
+                                    'bids': orderbook['bids'][0:40]})
+                if now > end_time:
+                    # save to pickle with good name
+                    print(exchange.id, len(master_data))
+                    df = pd.DataFrame(master_data)
+                    df.to_pickle(exchange.id + "_" + symbol.replace('/', '-') + "_" + str(start_time) + "_" + str(end_time) + "_lob.pkl")
+                    break
 
-        except Exception as e:
-            print(str(e))
-            # raise e  # uncomment to break all loops in case of an error in any one of them
-            break  # you can break just this one loop if it fails
+            except ccxt.DDoSProtection as e:
+                print(str(e), 'DDoS Protection (ignoring)')
+            except ccxt.RequestTimeout as e:
+                print(str(e), 'Request Timeout (ignoring)')
+            except ccxt.ExchangeNotAvailable as e:
+                print(str(e), 'Exchange Not Available due to downtime or maintenance (ignoring)')
+            except ccxt.AuthenticationError as e:
+                print(str(e), 'Authentication Error (missing API keys, ignoring)')
+            except ccxt.BaseError as e:
+                print(str(e), e.args, 'Base Error')
+            except Exception as e:
+                print(str(e), "Ignoring")
+                # raise e  # uncomment to break all loops in case of an error in any one of them
+                # break  # you can break just this one loop if it fails
 
 
 async def exchange_loop(asyncio_loop, exchange_id, symbols):
@@ -55,10 +66,10 @@ async def exchange_loop(asyncio_loop, exchange_id, symbols):
 
 async def main(asyncio_loop):
     exchanges = {
-        'kraken': ['DOGE/USDT'],
-        'kucoin': ['DOGE/USDT'],
-        'binanceus': ['DOGE/USDT'],
-        'binance': ['DOGE/USDT']
+        'kraken': ['ADA/USDT'],
+        'kucoin': ['ADA/USDT'],
+        'binanceus': ['ADA/USDT'],
+        'binance': ['ADA/USDT']
     }
     loops = [exchange_loop(asyncio_loop, exchange_id, symbols) for exchange_id, symbols in exchanges.items()]
     await gather(*loops)
