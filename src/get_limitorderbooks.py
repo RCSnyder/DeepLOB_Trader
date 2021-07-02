@@ -2,6 +2,7 @@ import os
 import sys
 import pandas as pd
 from asyncio import gather, get_event_loop
+import datetime
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root + '/python')
@@ -10,16 +11,34 @@ import ccxt.async_support as ccxt  # noqa: E402
 
 
 async def symbol_loop(exchange, symbol):
-    print('Starting the', exchange.id, 'symbol loop with', symbol)
     master_data = []
     start_time = exchange.milliseconds()
-    end_time = start_time + 43200000
-    while True:
-        # add check for now > end_time to break
+    end_time = start_time + 10000  # 43200000
+
+    str_start_time = str(datetime.datetime.fromtimestamp(start_time / 1000).strftime('%Y-%m-%d %H:%M:%S.%f'))
+    str_end_time = str(datetime.datetime.fromtimestamp(end_time / 1000).strftime('%Y-%m-%d %H:%M:%S.%f'))
+
+    # replace : and . with -
+    str_start_time = str_start_time.replace(":", "-")
+    str_start_time = str_start_time.replace(".", "-")
+
+    str_end_time = str_end_time.replace(":", "-")
+    str_end_time = str_end_time.replace(".", "-")
+
+    print('Starting the', exchange.id, 'symbol loop with', symbol)
+    print(f"Start time: {str_start_time}\nEnd Time: {str_end_time}\n")
+    # print the start and end time
+
+    end_loops = False
+
+    while not end_loops:
         while True:
             try:
                 # --------------------> DO YOUR LOGIC HERE <------------------
-                orderbook = await exchange.fetch_order_book(symbol)
+                if exchange.id == "kucoin":
+                    orderbook = await exchange.fetch_order_book(symbol, 100)
+                else:
+                    orderbook = await exchange.fetch_order_book(symbol)
                 now = exchange.milliseconds()
                 # print(now)
                 # print(exchange.iso8601(now), exchange.id, symbol, orderbook['asks'][0], orderbook['bids'][0])
@@ -28,14 +47,25 @@ async def symbol_loop(exchange, symbol):
                 master_data.append({'date': exchange.iso8601(now),
                                     'exchange_id': exchange.id,
                                     'symbol': symbol,
-                                    'asks': orderbook['asks'][0:40],
-                                    'bids': orderbook['bids'][0:40]})
+                                    'asks': orderbook['asks'],  # [0:40],
+                                    'bids': orderbook['bids']})  # [0:40]})
                 if now > end_time:
                     # save to pickle with good name
                     print(exchange.id, len(master_data))
+
                     df = pd.DataFrame(master_data)
-                    df.to_pickle(exchange.id + "_" + symbol.replace('/', '-') + "_" + str(start_time) + "_" + str(
-                        end_time) + "_lob.pkl")
+
+                    data_path = os.path.join(os.getcwd(), "data/limit_orderbook_data/"
+                                             + str_start_time + "_" + str_end_time)
+                    if not os.path.exists(data_path):
+                        os.mkdir(data_path)
+                    df.to_pickle(data_path + "/" + exchange.id + "_"
+                                 + symbol.replace('/', '-') + "_"
+                                 + str_start_time + "_" + str_end_time + "_lob.pkl")
+                    print(f"saved {exchange.id} {symbol} ",
+                          f"{str(datetime.datetime.fromtimestamp(now / 1000).strftime('%Y-%m-%d %H:%M:%S.%f'))}")
+
+                    end_loops = True
                     break
 
             except ccxt.DDoSProtection as e:
@@ -73,10 +103,10 @@ async def exchange_loop(asyncio_loop, exchange_id, symbols):
 
 async def main(asyncio_loop):
     exchanges = {
-        'kraken': ['ADA/USDT'],
-        'kucoin': ['ADA/USDT'],
-        'binanceus': ['ADA/USDT'],
-        'binance': ['ADA/USDT']
+        'kraken': ['ADA/ETH', 'ADA/USD', 'ADA/USDT', 'ETH/USDC', 'ETH/USDT', 'TBTC/ETH'],
+        'kucoin': ['ETH/USDC', 'ETH/TUSD', 'ETH/USDT', 'ETH/BTC', 'ADA/BTC', 'ADA/USDT', 'WBTC/ETH', 'ADA/USDC'],
+        'binanceus': ['ETH/USD', 'ETH/USDT', 'ETH/BTC', 'ADA/USD', 'ADA/USDT', 'ADA/BTC'],
+        'coinbasepro': ['ETH/USDC', 'ETH/USDT', 'ETH/USD', 'ADA/ETH', 'ADA/USD', 'ETH/BTC', 'ADA/USDC', 'ADA/BTC']
     }
     loops = [exchange_loop(asyncio_loop, exchange_id, symbols) for exchange_id, symbols in exchanges.items()]
     await gather(*loops)
