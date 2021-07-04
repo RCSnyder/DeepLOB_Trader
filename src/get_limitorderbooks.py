@@ -13,7 +13,8 @@ import ccxt.async_support as ccxt  # noqa: E402
 async def symbol_loop(exchange, symbol):
     master_data = []
     start_time = exchange.milliseconds()
-    end_time = start_time + 10000  # 43200000
+    end_time = start_time + 604800000  # 43200000
+    loop_counter = 0
 
     str_start_time = str(datetime.datetime.fromtimestamp(start_time / 1000).strftime('%Y-%m-%d %H:%M:%S.%f'))
     str_end_time = str(datetime.datetime.fromtimestamp(end_time / 1000).strftime('%Y-%m-%d %H:%M:%S.%f'))
@@ -33,6 +34,7 @@ async def symbol_loop(exchange, symbol):
 
     while not end_loops:
         while True:
+            loop_counter += 1
             try:
                 # --------------------> DO YOUR LOGIC HERE <------------------
                 if exchange.id == "kucoin":
@@ -49,7 +51,8 @@ async def symbol_loop(exchange, symbol):
                                     'symbol': symbol,
                                     'asks': orderbook['asks'],  # [0:40],
                                     'bids': orderbook['bids']})  # [0:40]})
-                if now > end_time:
+                # save the file if now is later than the end time or if its been
+                if now > end_time or loop_counter % 6000 == 0:
                     # save to pickle with good name
                     print(exchange.id, len(master_data))
 
@@ -61,12 +64,15 @@ async def symbol_loop(exchange, symbol):
                         os.mkdir(data_path)
                     df.to_pickle(data_path + "/" + exchange.id + "_"
                                  + symbol.replace('/', '-') + "_"
-                                 + str_start_time + "_" + str_end_time + "_lob.pkl")
+                                 + str_start_time + "_" + str_end_time + "_" + str(loop_counter) + "_lob.pkl")
                     print(f"saved {exchange.id} {symbol} ",
                           f"{str(datetime.datetime.fromtimestamp(now / 1000).strftime('%Y-%m-%d %H:%M:%S.%f'))}")
 
-                    end_loops = True
-                    break
+                    master_data = []
+
+                    if now > end_time:
+                        end_loops = True
+                        break
 
             except ccxt.DDoSProtection as e:
                 print(str(e), 'DDoS Protection (ignoring)')
@@ -103,10 +109,10 @@ async def exchange_loop(asyncio_loop, exchange_id, symbols):
 
 async def main(asyncio_loop):
     exchanges = {
-        'kraken': ['ADA/ETH', 'ADA/USD', 'ADA/USDT', 'ETH/USDC', 'ETH/USDT', 'TBTC/ETH'],
-        'kucoin': ['ETH/USDC', 'ETH/TUSD', 'ETH/USDT', 'ETH/BTC', 'ADA/BTC', 'ADA/USDT', 'WBTC/ETH', 'ADA/USDC'],
-        'binanceus': ['ETH/USD', 'ETH/USDT', 'ETH/BTC', 'ADA/USD', 'ADA/USDT', 'ADA/BTC'],
-        'coinbasepro': ['ETH/USDC', 'ETH/USDT', 'ETH/USD', 'ADA/ETH', 'ADA/USD', 'ETH/BTC', 'ADA/USDC', 'ADA/BTC']
+        'kraken': ['ADA/ETH', 'ADA/USD', 'ADA/USDT', 'ETH/USDC', 'ETH/USDT', 'TBTC/ETH']
+        #'kucoin': ['ETH/USDC', 'ETH/TUSD', 'ETH/USDT', 'ETH/BTC', 'ADA/BTC', 'ADA/USDT', 'WBTC/ETH', 'ADA/USDC'],
+        #'binanceus': ['ETH/USD', 'ETH/USDT', 'ETH/BTC', 'ADA/USD', 'ADA/USDT', 'ADA/BTC'],
+        #'coinbasepro': ['ETH/USDC', 'ETH/USDT', 'ETH/USD', 'ADA/ETH', 'ADA/USD', 'ETH/BTC', 'ADA/USDC', 'ADA/BTC']
     }
     loops = [exchange_loop(asyncio_loop, exchange_id, symbols) for exchange_id, symbols in exchanges.items()]
     await gather(*loops)
