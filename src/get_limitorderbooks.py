@@ -52,7 +52,7 @@ async def symbol_loop(exchange, symbol):
                                     'asks': orderbook['asks'],  # [0:40],
                                     'bids': orderbook['bids']})  # [0:40]})
                 # save the file if now is later than the end time or if its been
-                if now > end_time or loop_counter % 3000 == 0:
+                if now > end_time or loop_counter % 1000 == 0:
                     # save to pickle with good name
                     print(exchange.id, len(master_data))
 
